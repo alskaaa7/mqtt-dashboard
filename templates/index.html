@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мониторинг CPU</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 15px;
+            color: white;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(5px);
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .card h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .value {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .unit {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-top: 15px;
+            height: 180px;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .chart-title {
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .chart-controls {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .chart-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+        
+        .chart-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+        
+        .status {
+            margin-top: 12px;
+            text-align: center;
+            font-size: 0.8rem;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+        }
+        
+        .icon {
+            font-size: 1.2rem;
+        }
+        
+        .temperature-hot { color: #ff6b6b; }
+        .temperature-warm { color: #ffd93d; }
+        .temperature-cool { color: #6bcf7f; }
+        
+        .usage-high { color: #ff6b6b; }
+        .usage-medium { color: #ffd93d; }
+        .usage-low { color: #6bcf7f; }
+        
+        .card-status {
+            font-size: 0.75rem;
+            opacity: 0.9;
+            margin-top: 3px;
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 160px;
+                padding: 12px;
+            }
+            
+            h1 {
+                font-size: 1.3rem;
+            }
+            
+            .value {
+                font-size: 2rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .chart-container {
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Мониторинг CPU</h1>
+            <p class="subtitle">Данные в реальном времени</p>
+        </header>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h3><span class="icon"></span> Температура</h3>
+                <div class="value temperature" id="temp-value">--</div>
+                <div class="unit">°C</div>
+                <div class="card-status" id="temp-status">Обновление</div>
+            </div>
+            
+            <div class="card">
+                <h3><span class="icon"></span> Загрузка CPU</h3>
+                <div class="value usage" id="usage-value">--</div>
+                <div class="unit">%</div>
+                <div class="card-status" id="usage-status">Обновление</div>
+            </div>
+            
+            <div class="card">
+                <h3><span class="icon"></span> Память</h3>
+                <div class="value" id="memory-value">--</div>
+                <div class="unit">%</div>
+                <div class="card-status" id="memory-status">Обновление...</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <h3 class="chart-title"><span class="icon"></span> Температура CPU</h3>
+                <div class="chart-controls">
+                    <button class="chart-btn" onclick="changeHistoryLength(10)">10</button>
+                    <button class="chart-btn" onclick="changeHistoryLength(15)">15</button>
+                    <button class="chart-btn" onclick="clearHistory()">✕</button>
+                </div>
+            </div>
+            <canvas id="temperatureChart"></canvas>
+        </div>
+        
+        <div class="status" id="connection-status">
+            Подключение
+        </div>
+    </div>
+
+    <script>
+        const tempEl = document.getElementById('temp-value');
+        const usageEl = document.getElementById('usage-value');
+        const memoryEl = document.getElementById('memory-value');
+        const statusEl = document.getElementById('connection-status');
+        
+        const ctx = document.getElementById('temperatureChart').getContext('2d');
+        const temperatureChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '°C',
+                    data: [],
+                    borderColor: 'rgba(255, 99, 132, 0.9)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.05)',
+                    borderWidth: 1.5,
+                    pointRadius: 2,
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    pointBorderColor: 'white',
+                    pointBorderWidth: 0.5,
+                    tension: 0.2,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: 'white',
+                        bodyColor: 'white',
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                        borderWidth: 1,
+                        titleFont: { size: 11 },
+                        bodyFont: { size: 11 },
+                        padding: 6
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { 
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: { 
+                            color: 'rgba(255, 255, 255, 0.6)',
+                            font: { size: 9 },
+                            maxTicksLimit: 6
+                        }
+                    },
+                    y: {
+                        display: true,
+                        beginAtZero: false,
+                        grid: { 
+                            color: 'rgba(255, 255, 255, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: { 
+                            color: 'rgba(255, 255, 255, 0.6)',
+                            font: { size: 9 },
+                            callback: function(value) {
+                                return value + '°';
+                            },
+                            maxTicksLimit: 5
+                        },
+                        suggestedMin: 30,
+                        suggestedMax: 80
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'nearest'
+                },
+                animation: {
+                    duration: 200
+                },
+                elements: {
+                    line: {
+                        borderWidth: 1.5
+                    }
+                }
+            }
+        });
+        
+        let temperatureHistory = [];
+        let timeHistory = [];
+        let maxHistoryPoints = 10; 
+        
+        function updateValueStyles(element, value, type) {
+            element.classList.remove('temperature-hot', 'temperature-warm', 'temperature-cool');
+            element.classList.remove('usage-high', 'usage-medium', 'usage-low');
+            
+            if (type === 'temperature') {
+                if (value > 70) element.classList.add('temperature-hot');
+                else if (value > 50) element.classList.add('temperature-warm');
+                else element.classList.add('temperature-cool');
+            } else if (type === 'usage') {
+                if (value > 70) element.classList.add('usage-high');
+                else if (value > 40) element.classList.add('usage-medium');
+                else element.classList.add('usage-low');
+            }
+        }
+        
+        function updateStatusText(value, type) {
+            if (type === 'temperature') {
+                if (value > 70) return 'Высокая';
+                else if (value > 50) return 'Норма';
+                else return 'Низкая';
+            } else if (type === 'usage') {
+                if (value > 70) return 'Высокая';
+                else if (value > 40) return 'Средняя';
+                else return 'Низкая';
+            }
+            return value + '%';
+        }
+        
+        async function fetchData() {
+            try {
+                const response = await fetch('/data');
+                const data = await response.json();
+                
+                const tempValue = parseFloat(data.temperature);
+                const usageValue = parseFloat(data.usage);
+                const memoryValue = parseFloat(data.memory);
+                
+                tempEl.textContent = tempValue.toFixed(1);
+                usageEl.textContent = usageValue.toFixed(1);
+                memoryEl.textContent = memoryValue.toFixed(1);
+                
+                updateValueStyles(tempEl, tempValue, 'temperature');
+                updateValueStyles(usageEl, usageValue, 'usage');
+                
+                document.getElementById('temp-status').textContent = updateStatusText(tempValue, 'temperature');
+                document.getElementById('usage-status').textContent = updateStatusText(usageValue, 'usage');
+                document.getElementById('memory-status').textContent = updateStatusText(memoryValue, 'memory');
+                
+                const now = new Date();
+                const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
+                                  now.getMinutes().toString().padStart(2, '0');
+                
+                temperatureHistory.push(tempValue);
+                timeHistory.push(timeString);
+                
+                if (temperatureHistory.length > maxHistoryPoints) {
+                    temperatureHistory.shift();
+                    timeHistory.shift();
+                }
+                
+                temperatureChart.data.labels = timeHistory;
+                temperatureChart.data.datasets[0].data = temperatureHistory;
+                temperatureChart.update('none');
+                
+                statusEl.innerHTML = `${timeString}`;
+                statusEl.style.color = '#6bcf7f';
+                
+            } catch (error) {
+                statusEl.innerHTML = 'Ошибка';
+                statusEl.style.color = '#ff6b6b';
+            }
+        }
+        
+        function changeHistoryLength(length) {
+            maxHistoryPoints = length;
+            if (temperatureHistory.length > length) {
+                temperatureHistory = temperatureHistory.slice(-length);
+                timeHistory = timeHistory.slice(-length);
+                temperatureChart.data.labels = timeHistory;
+                temperatureChart.data.datasets[0].data = temperatureHistory;
+                temperatureChart.update();
+            }
+        }
+        
+        function clearHistory() {
+            temperatureHistory = [];
+            timeHistory = [];
+            temperatureChart.data.labels = timeHistory;
+            temperatureChart.data.datasets[0].data = temperatureHistory;
+            temperatureChart.update();
+        }
+        
+        fetchData();
+        setInterval(fetchData, 2000);
+        
+        window.addEventListener('resize', function() {
+            temperatureChart.resize();
+        });
+    </script>
+</body>
+</html>

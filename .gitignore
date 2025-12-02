@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.vscode/
+*.log
+cpu_monitor_log.csv
+cpu_monitor_linux_log.csv
+.DS_Store
